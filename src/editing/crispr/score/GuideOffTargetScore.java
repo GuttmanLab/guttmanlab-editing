@@ -151,12 +151,12 @@ public class GuideOffTargetScore extends CommandLineProgram implements GuideRNAS
 		List<Integer> offTargetHits = new ArrayList<Integer>();
 		for (int i = 0; i < offTargetSeqs.length; i += 5) {
 			double currScore = scoreSingleHit(guideBytes, Arrays.copyOfRange(offTargetSeqs, i, i+5), 20);
-			
-			if (exonIndices != null & exonIndices.contains(Integer.valueOf(i/5))) {
-				// Extra penalty for matches that overlap with exons
-				currScore = currScore * EXON_PENALTY;
+			if(exonIndices != null) {
+				if (exonIndices.contains(Integer.valueOf(i/5))) {
+					// Extra penalty for matches that overlap with exons
+					currScore = currScore * EXON_PENALTY;
+				}
 			}
-			
 			if (currScore > 0.0) offTargetHits.add(i/5);
 			if (Double.isInfinite(currScore)) {
 				nExact++;

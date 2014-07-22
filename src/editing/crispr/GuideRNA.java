@@ -29,9 +29,10 @@ public class GuideRNA extends BasicAnnotation {
 	 * @param chromosome Chromosome
 	 * @param start Start position of 20mer
 	 * @param end Position after last position of 20mer
+	 * @param allowNAG Allow NAG as valid PAM sequence
 	 * @param orientation Strand
 	 */
-	public GuideRNA(Gene targetGene, Sequence chromosome, int start, int end, Strand orientation) {
+	public GuideRNA(Gene targetGene, Sequence chromosome, int start, int end, Strand orientation, boolean allowNAG) {
 		super(chromosome.getId(), start, end, orientation);
 		validateStartEnd(start, end);
 		validateStrand(orientation);
@@ -65,7 +66,7 @@ public class GuideRNA extends BasicAnnotation {
 		sequence23 = strand.equals(Strand.POSITIVE) ? longSeq : Sequence.reverseSequence(longSeq);
 		//logger.debug(name + "\tsequence20\t" + sequence20.getSequenceBases() + "\tsequence23\t" + sequence23.getSequenceBases());
 		validateSequence20(sequence20);
-		validateSequence23(sequence23);
+		validateSequence23(sequence23, allowNAG);
 	}
 
 	
@@ -119,15 +120,29 @@ public class GuideRNA extends BasicAnnotation {
 	 * @param chr Chromosome
 	 * @param start Start position of window to look in
 	 * @param end Position after last position of window
-	 * @return All guide RNAs followed by NGG whose 20nt sequence is fully contained in the window
+	 * @return All guide RNAs followed by PAM sequence whose 20nt sequence is fully contained in the window
 	 */
 	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene) {
+		return findAll(chr, start, end, targetGene, false);
+	}
+	
+	/**
+	 * Find all guide RNAs on either strand within the window
+	 * @param chr Chromosome
+	 * @param start Start position of window to look in
+	 * @param end Position after last position of window
+	 * @param includeNAG Include NAG as a valid PAM sequence
+	 * @return All guide RNAs followed by PAM sequence whose 20nt sequence is fully contained in the window
+	 */
+	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene, boolean includeNAG) {
 		//logger.debug("");
 		Collection<GuideRNA> rtrn = new ArrayList<GuideRNA>();
-		Collection<Annotation> nggs = findAllNGGs(chr, start, end);
-		//logger.debug("There are " + nggs.size() + " NGGs in " + chr.getId() + ":" + start + "-" + end);
-		for(Annotation ngg : nggs) {
-			GuideRNA g = adjacentGuideRNA(chr, start, end, ngg, targetGene);
+		Collection<Annotation> pams = findAllNGGs(chr, start, end);
+		if(includeNAG) {
+			pams.addAll(findAllNAGs(chr, start, end));
+		}
+		for(Annotation pam : pams) {
+			GuideRNA g = adjacentGuideRNA(chr, start, end, pam, targetGene, includeNAG);
 			if(g != null) {
 				//logger.debug("Added " + g.toString());
 				rtrn.add(g);
@@ -141,49 +156,212 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	/**
-	 * Get the correctly oriented guide RNA that is fully contained in the window and ends with the NGG specified
+	 * Get the correctly oriented guide RNA that is fully contained in the window and ends with the PAM specified
 	 * @param windowChr Window chromosome
 	 * @param windowStart Window start
 	 * @param windowEnd Position after last position of window
-	 * @param ngg Oriented NGG location
+	 * @param pam Oriented PAM location
 	 * @param targetGene Target gene
+	 * @param allowNAG Include NAG as a valid PAM sequence
 	 * @return The 20nt guide RNA or null if not fully contained in window
 	 */
-	private static GuideRNA adjacentGuideRNA(Sequence windowChr, int windowStart, int windowEnd, Annotation ngg, Gene targetGene) {
-		validateNGG(windowChr, ngg);
-		//logger.debug("Getting guide RNA adjacent to " + ngg.toUCSC() + ":" + ngg.getOrientation().toString());
-		if(ngg.getOrientation().equals(Strand.POSITIVE)) {
-			if(ngg.getStart() - windowStart < 20) {
+	private static GuideRNA adjacentGuideRNA(Sequence windowChr, int windowStart, int windowEnd, Annotation pam, Gene targetGene, boolean allowNAG) {
+		validatePAM(windowChr, pam, allowNAG);
+		//logger.debug("Getting guide RNA adjacent to " + pam.toUCSC() + ":" + pam.getOrientation().toString());
+		if(pam.getOrientation().equals(Strand.POSITIVE)) {
+			if(pam.getStart() - windowStart < 20) {
 				// Guide RNA cannot be fully contained in window
-				logger.debug("Guide RNA neighboring " + ngg.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
+				logger.debug("Guide RNA neighboring " + pam.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
 				return null;
 			}
-			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, ngg.getStart() - 20, ngg.getStart(), Strand.POSITIVE);
-			//logger.debug("Guide RNA neighboring " + ngg.toUCSC() + " is " + rtrn.toString());
+			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getStart() - 20, pam.getStart(), Strand.POSITIVE, allowNAG);
+			//logger.debug("Guide RNA neighboring " + pam.toUCSC() + " is " + rtrn.toString());
 			return rtrn;
 		}
-		if(ngg.getOrientation().equals(Strand.NEGATIVE)) {
-			if(ngg.getEnd() + 20 > windowEnd) {
+		if(pam.getOrientation().equals(Strand.NEGATIVE)) {
+			if(pam.getEnd() + 20 > windowEnd) {
 				// Guide RNA cannot be fully contained in window
-				logger.debug("Guide RNA neighboring " + ngg.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
+				logger.debug("Guide RNA neighboring " + pam.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
 				return null;
 			}
-			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, ngg.getEnd(), ngg.getEnd() + 20, Strand.NEGATIVE);
-			//logger.debug("Guide RNA neighboring " + ngg.toUCSC() + " is " + rtrn.toString());
+			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getEnd(), pam.getEnd() + 20, Strand.NEGATIVE, allowNAG);
+			//logger.debug("Guide RNA neighboring " + pam.toUCSC() + " is " + rtrn.toString());
 			return rtrn;
 		}
 		throw new IllegalArgumentException("Strand must be known");
 	}
 	
-	private static void validateNGG(Sequence chr, Annotation ngg) {
-		if(ngg.numBlocks() != 1) {
+	private static void validatePAM(Sequence chr, Annotation pam, boolean allowNAG) {
+		if(pam.numBlocks() != 1) {
 			throw new IllegalArgumentException("Must have one block");
 		}
-		Sequence seq = chr.getSubsequence(ngg);
-		if(!seq.getSequenceBases().substring(1).toUpperCase().equals("GG")) {
+		Sequence seq = chr.getSubsequence(pam);
+		String substr = seq.getSequenceBases().substring(1).toUpperCase();
+		if(!allowNAG && !substr.equals("GG")) {
 			throw new IllegalArgumentException("Sequence must be NGG. Is " + seq.getSequenceBases());
 		}
+		if(allowNAG && !(substr.equals("GG") || substr.equals("AG"))) {
+			throw new IllegalArgumentException("Sequence must be NGG or NAG. Is " + seq.getSequenceBases());
+		}
 	}
+	
+	/**
+	 * Get all NAG sequences that are fully contained within the window on either strand
+	 * @param chr Chromosome
+	 * @param start First position of window
+	 * @param end Position after last position of window
+	 * @return All NAGs as annotations with strand
+	 */
+	private static Collection<Annotation> findAllNAGs(Sequence chr, int start, int end) {
+		String seq = chr.getSubSequence("", start, end).getSequenceBases();
+		Collection<Annotation> rtrn = new TreeSet<Annotation>();
+		
+		// Find all NAGs
+		int i1 = 0;
+		while(i1 < seq.length()) {
+			int pos = seq.indexOf("AG", i1);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i1++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation pam = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			rtrn.add(pam);
+			i1 = pos + 1;
+		}
+		
+		int i2 = 0;
+		while(i2 < seq.length()) {
+			int pos = seq.indexOf("ag", i2);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i2++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation pam = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			rtrn.add(pam);
+			i2 = pos + 1;
+		}
+		
+		int i3 = 0;
+		while(i3 < seq.length()) {
+			int pos = seq.indexOf("Ag", i3);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i3++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation pam = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			rtrn.add(pam);
+			i3 = pos + 1;
+		}
+		
+		int i4 = 0;
+		while(i4 < seq.length()) {
+			int pos = seq.indexOf("aG", i4);
+			if(pos == -1) {
+				break;
+			}
+			if(pos == 0) {
+				// Won't be fully contained
+				i4++;
+				continue;
+			}
+			if(pos + 2 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation pam = new BasicAnnotation(chr.getId(), start + pos - 1, start + pos + 2, Strand.POSITIVE);
+			rtrn.add(pam);
+			i4 = pos + 1;
+		}
+		
+		// Find all CCNs
+		int j1 = 0;
+		while(j1 < seq.length()) {
+			int pos = seq.indexOf("CT", j1);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			rtrn.add(ccn);
+			j1 = pos + 1;
+		}
+		
+		int j2 = 0;
+		while(j2 < seq.length()) {
+			int pos = seq.indexOf("cT", j2);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			rtrn.add(ccn);
+			j2 = pos + 1;
+		}
+		
+		int j3 = 0;
+		while(j3 < seq.length()) {
+			int pos = seq.indexOf("ct", j3);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			rtrn.add(ccn);
+			j3 = pos + 1;
+		}
+		
+		int j4 = 0;
+		while(j4 < seq.length()) {
+			int pos = seq.indexOf("Ct", j4);
+			if(pos == -1) break;
+			if(pos + 3 > seq.length()) {
+				// Won't be fully contained
+				break;
+			}
+			// Create annotation
+			Annotation ccn = new BasicAnnotation(chr.getId(), start + pos, start + pos + 3, Strand.NEGATIVE);
+			rtrn.add(ccn);
+			j4 = pos + 1;
+		}
+		
+		return rtrn;
+		
+	}
+
 	
 	/**
 	 * Get all NGG sequences that are fully contained within the window on either strand
@@ -368,12 +546,16 @@ public class GuideRNA extends BasicAnnotation {
 		}
 	}
 	
-	private static void validateSequence23(Sequence sequence) {
+	private static void validateSequence23(Sequence sequence, boolean allowNAG) {
 		if(sequence.getLength() != 23) {
 			throw new IllegalArgumentException("Sequence length must be 23: " + sequence.getSequenceBases());
 		}
-		if(!sequence.getSequenceBases().substring(21, 23).equals("GG")) {
+		String substr = sequence.getSequenceBases().substring(21, 23);
+		if(!allowNAG && !substr.equals("GG")) {
 			throw new IllegalArgumentException("Sequence must end in GG: " + sequence.getSequenceBases());
+		}
+		if(allowNAG && !(substr.equals("GG") || substr.equals("AG"))) {
+			throw new IllegalArgumentException("Sequence must end in GG or AG: " + sequence.getSequenceBases());
 		}
 	}
 
@@ -391,7 +573,7 @@ public class GuideRNA extends BasicAnnotation {
 
 	
 	public String toBedWithSequence() {
-		return toBED() + "\t" + sequence23.getSequenceBases();
+		return toBED() + "\t" + sequence20.getSequenceBases();
 	}
 
 	/**

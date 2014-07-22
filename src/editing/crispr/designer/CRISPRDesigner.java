@@ -1,4 +1,4 @@
-package editing.crispr;
+package editing.crispr.designer;
 
 import java.io.BufferedWriter;
 import java.io.File;

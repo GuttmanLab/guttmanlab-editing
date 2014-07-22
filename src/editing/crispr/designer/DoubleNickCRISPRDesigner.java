@@ -1,4 +1,4 @@
-package editing.crispr;
+package editing.crispr.designer;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -22,6 +22,8 @@ import editing.RestrictionEnzymeFactory;
 import editing.RestrictionEnzymePair;
 import editing.SingleCleavageTypeIIRestrictionEnzyme;
 import editing.TypeIISRestrictionEnzyme;
+import editing.crispr.GuideRNA;
+import editing.crispr.NickingGuideRNAPair;
 import editing.crispr.predicate.GuideLacksEnzymeCutSite;
 import editing.crispr.predicate.GuidePairDoubleNickConfiguration;
 import editing.crispr.predicate.GuideProximityToNearestRegion;
@@ -30,7 +32,6 @@ import editing.crispr.predicate.GuideSufficientIsolation;
 import editing.crispr.score.GuideEfficacyScore;
 import editing.crispr.score.GuideOffTargetScore;
 import editing.crispr.score.GuidePairCombinedEfficacyDistanceScore;
-import editing.crispr.score.GuidePairInnerDistanceScore;
 
 import broad.core.parser.CommandLineParser;
 import broad.core.sequence.FastaSequenceIO;
