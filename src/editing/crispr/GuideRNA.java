@@ -110,6 +110,9 @@ public class GuideRNA extends BasicAnnotation {
 		return sequence23;
 	}
 	
+	public String getSequenceStringWithPAM() {
+		return getSequenceWithPAM().getSequenceBases();
+	}
 	
 	public Gene getTargetGene() {
 		return target;

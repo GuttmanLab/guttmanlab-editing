@@ -2,7 +2,9 @@ package editing.crispr.designer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -26,9 +28,9 @@ import broad.core.sequence.Sequence;
  * @author prussell
  *
  */
-public class SingletonGuideRNAFinder {
+public class SingleGuideRNAFinder {
 
-	public static Logger logger = Logger.getLogger(SingletonGuideRNAFinder.class.getName());
+	public static Logger logger = Logger.getLogger(SingleGuideRNAFinder.class.getName());
 	private Map<String, Sequence> chrsByName;
 	
 	// Off target filter
@@ -48,7 +50,7 @@ public class SingletonGuideRNAFinder {
 	 * @param genomeFasta Genome fasta file
 	 * @throws IOException
 	 */
-	public SingletonGuideRNAFinder(String genomeFasta) throws IOException {
+	public SingleGuideRNAFinder(String genomeFasta) throws IOException {
 		logger.info("");
 		logger.info("Instantiating guide RNA finder for sequences in " + genomeFasta + "...");
 		chrsByName = FastaSequenceIO.getChrSequencesFromFasta(genomeFasta);
@@ -155,6 +157,47 @@ public class SingletonGuideRNAFinder {
 			}
 		}
 	}
+	
+	/**
+	 * Get filtered set of guide RNAs within the region
+	 * Get a certain number of valid guides
+	 * No guarantee about which ones will be returned
+	 * @param regionChr Region chromosome
+	 * @param regionStart Region start
+	 * @param regionEnd Region end
+	 * @param numToGet Number of guides to get
+	 * @return All valid guide RNAs contained within the region
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public Collection<GuideRNA> getFilteredGuideRNAs(String regionChr, int regionStart, int regionEnd, int numToGet) throws IOException, InterruptedException {
+		Gene region = new Gene(regionChr, regionStart, regionEnd);
+		region.setName(region.toUCSC());
+		Collection<GuideRNA> guides = GuideRNA.findAll(chrsByName.get(region.getChr()), region.getStart(), region.getEnd(), region);
+		// Use a hash set so order will be somewhat random
+		HashSet<GuideRNA> guidesHash = new HashSet<GuideRNA>();
+		guidesHash.addAll(guides);
+		Collection<GuideRNA> rtrn = new ArrayList<GuideRNA>();
+		for(GuideRNA guide : guidesHash) {
+			Collection<GuideRNA> thisGuide = new ArrayList<GuideRNA>();
+			thisGuide.add(guide);
+			try {
+				applyFilters(thisGuide);
+			} catch(IllegalStateException e) {
+				logger.warn("CAUGHT EXCEPTION");
+				e.printStackTrace();
+			}
+			if(!thisGuide.isEmpty()) {
+				rtrn.addAll(thisGuide);
+			}
+			if(rtrn.size() >= numToGet) {
+				return rtrn;
+			}
+		}
+		logger.warn("Only found " + rtrn.size() + " valid guide RNAs for region " + region.toUCSC());
+		return rtrn;
+	}
+
 	
 	/**
 	 * Get filtered set of guide RNAs within the region

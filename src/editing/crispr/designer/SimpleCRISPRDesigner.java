@@ -2,6 +2,7 @@ package editing.crispr.designer;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -15,6 +16,7 @@ import editing.crispr.GuideRNA;
 import editing.crispr.predicate.GuideDoesNotTargetSequences;
 
 import broad.core.parser.CommandLineParser;
+import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.annotation.Annotation.Strand;
@@ -27,7 +29,7 @@ import nextgen.core.annotation.Gene;
  */
 public class SimpleCRISPRDesigner {
 	
-	private SingletonGuideRNAFinder finder;
+	private SingleGuideRNAFinder finder;
 	private Map<String, Collection<Gene>> intervals;
 	private static Logger logger = Logger.getLogger(SimpleCRISPRDesigner.class.getName());
 	
@@ -49,9 +51,33 @@ public class SimpleCRISPRDesigner {
 
 		public SimpleTableFormat() {}
 		
+		@SuppressWarnings("unused")
+		public String header() {
+			String rtrn = "parent_name\t";
+			rtrn += "chr\t";
+			rtrn += "start\t";
+			rtrn += "end\t";
+			rtrn += "seq\t";
+			rtrn += "seq_pam\t";
+			rtrn += "seqRC\t";
+			rtrn += "seq_pam_RC";
+			return rtrn;
+		}
+		
 		@Override
 		public String format(String parentName, GuideRNA guide) {
-			return parentName + "\t" + guide.toBedWithSequence();
+			String seq = guide.getSequenceString();
+			String seqp = guide.getSequenceStringWithPAM();
+			
+			String rtrn = parentName + "\t";
+			rtrn += guide.getChr() + "\t";
+			rtrn += guide.getStart() + "\t";
+			rtrn += guide.getEnd() + "\t";
+			rtrn += seq + "\t";
+			rtrn += seqp + "\t";
+			rtrn += Sequence.reverseSequence(seq) + "\t";
+			rtrn += Sequence.reverseSequence(seqp);
+			return rtrn;
 		}
 		
 	}
@@ -78,7 +104,7 @@ public class SimpleCRISPRDesigner {
 	 * @param bedIntervals Bed file of intervals to target
 	 * @throws IOException
 	 */
-	private SimpleCRISPRDesigner(SingletonGuideRNAFinder guideFinder, String bedIntervals) throws IOException {
+	private SimpleCRISPRDesigner(SingleGuideRNAFinder guideFinder, String bedIntervals) throws IOException {
 		finder = guideFinder;
 		intervals = BEDFileParser.loadDataByChr(bedIntervals);
 	}
@@ -89,7 +115,19 @@ public class SimpleCRISPRDesigner {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
+	@SuppressWarnings("unused")
 	private void findAndWriteGuides(Map<String, OutputFormat> outFilesAndFormats) throws IOException, InterruptedException {
+		findAndWriteGuides(outFilesAndFormats, -1);
+	}
+	
+	/**
+	 * Find valid guide RNAs and write to a file
+	 * @param outFilesAndFormats Output file names with format for each file name
+	 * @param numGuidesPerInterval Number of guides to get per interval, or pass a negative number if getting all
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	private void findAndWriteGuides(Map<String, OutputFormat> outFilesAndFormats, int numGuidesPerInterval) throws IOException, InterruptedException {
 		logger.info("");
 		logger.info("Finding valid guide RNAs and writing output...");
 		Map<String, FileWriter> writers = new HashMap<String, FileWriter>();
@@ -106,7 +144,12 @@ public class SimpleCRISPRDesigner {
 					}
 					throw new IllegalArgumentException("Region must have only one block: " + region.toBED());
 				}
-				Collection<GuideRNA> guides = finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd());
+				Collection<GuideRNA> guides = new ArrayList<GuideRNA>();
+				if(numGuidesPerInterval >= 0) {
+					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd(), numGuidesPerInterval));
+				} else {
+					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd()));
+				}
 				for(GuideRNA guide : guides) {
 					for(String file : outFilesAndFormats.keySet()) {
 						FileWriter w = writers.get(file);
@@ -214,12 +257,13 @@ public class SimpleCRISPRDesigner {
 		
 		p.addStringArg("-g", "Genome fasta", true);
 		p.addStringArg("-r", "Bed file of single intervals to target", true);
+		p.addIntArg("-n", "Number of guides to get per interval, omit if getting all", false, -1);
 		
 		p.addBooleanArg("-ge", "Apply guide efficacy filter", false, false);
-		p.addDoubleArg("-gem", "Max guide efficacy if using filter", false, SingletonGuideRNAFinder.MAX_GUIDE_EFFICACY_SCORE);
+		p.addDoubleArg("-gem", "Max guide efficacy if using filter", false, SingleGuideRNAFinder.MAX_GUIDE_EFFICACY_SCORE);
 		
 		p.addBooleanArg("-got", "Apply guide off target filter (requires off target bits file)", false, false);
-		p.addIntArg("-gotm", "Min guide off target score", false, SingletonGuideRNAFinder.MIN_OFF_TARGET_SCORE);
+		p.addIntArg("-gotm", "Min guide off target score", false, SingleGuideRNAFinder.MIN_OFF_TARGET_SCORE);
 		p.addStringArg("-gotb", "Off target bits file", false);
 		
 		p.addBooleanArg("-os", "Filter guides that potentially target a sequence in another set", false, false);
@@ -238,6 +282,7 @@ public class SimpleCRISPRDesigner {
 		
 		String genomeFasta = p.getStringArg("-g");
 		String regionBed = p.getStringArg("-r");
+		int numPerInterval = p.getIntArg("-n");
 		
 		boolean efficacyFilter = p.getBooleanArg("-ge");
 		double maxEfficacyScore = p.getDoubleArg("-gem");
@@ -259,11 +304,11 @@ public class SimpleCRISPRDesigner {
 		
 		if(p.getBooleanArg("-d")) {
 			logger.setLevel(Level.DEBUG);
-			SingletonGuideRNAFinder.logger.setLevel(Level.DEBUG);
+			SingleGuideRNAFinder.logger.setLevel(Level.DEBUG);
 			GuideDoesNotTargetSequences.logger.setLevel(Level.DEBUG);
 		}
 		
-		SingletonGuideRNAFinder finder = new SingletonGuideRNAFinder(genomeFasta);
+		SingleGuideRNAFinder finder = new SingleGuideRNAFinder(genomeFasta);
 		if(efficacyFilter) {
 			finder.addEfficacyFilter(maxEfficacyScore);
 		}
@@ -289,7 +334,7 @@ public class SimpleCRISPRDesigner {
 		if(fivePrime) {
 			designer.findAndWrite5PrimeGuidesForNameGroup(outFiles, fivePrimeNum);
 		} else {
-			designer.findAndWriteGuides(outFiles);
+			designer.findAndWriteGuides(outFiles, numPerInterval);
 		}
 		
 		logger.info("");
