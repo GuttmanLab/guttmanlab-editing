@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.TreeSet;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -19,26 +17,27 @@ import broad.core.parser.CommandLineParser;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 
-import nextgen.core.annotation.Annotation.Strand;
 import nextgen.core.annotation.Gene;
 
 /**
- * Design singleton guide RNAs against intervals of interest
+ * Design single guide RNAs against intervals of interest
  * @author prussell
  *
  */
 public class SimpleCRISPRDesigner {
 	
-	private SingleGuideRNAFinder finder;
-	private Map<String, Collection<Gene>> intervals;
+	protected SingleGuideRNAFinder finder;
+	protected Map<String, Collection<Gene>> intervals; // The intervals to target
 	private static Logger logger = Logger.getLogger(SimpleCRISPRDesigner.class.getName());
+	protected int numPerInterval; // Number of guides to get per interval
+	protected String output; // Output file prefix
 	
 	/**
 	 * A format for outputting a guide RNA
 	 * @author prussell
 	 *
 	 */
-	private interface OutputFormat {
+	protected interface OutputFormat {
 		public String format(String parentName, GuideRNA guide);
 	}
 	
@@ -47,11 +46,10 @@ public class SimpleCRISPRDesigner {
 	 * @author prussell
 	 *
 	 */
-	private class SimpleTableFormat implements OutputFormat {
+	protected class SimpleTableFormat implements OutputFormat {
 
 		public SimpleTableFormat() {}
 		
-		@SuppressWarnings("unused")
 		public String header() {
 			String rtrn = "parent_name\t";
 			rtrn += "chr\t";
@@ -87,7 +85,7 @@ public class SimpleCRISPRDesigner {
 	 * @author prussell
 	 *
 	 */
-	private class BedFormat implements OutputFormat {
+	protected class BedFormat implements OutputFormat {
 
 		public BedFormat() {}
 		
@@ -104,7 +102,7 @@ public class SimpleCRISPRDesigner {
 	 * @param bedIntervals Bed file of intervals to target
 	 * @throws IOException
 	 */
-	private SimpleCRISPRDesigner(SingleGuideRNAFinder guideFinder, String bedIntervals) throws IOException {
+	public SimpleCRISPRDesigner(SingleGuideRNAFinder guideFinder, String bedIntervals) throws IOException {
 		finder = guideFinder;
 		intervals = BEDFileParser.loadDataByChr(bedIntervals);
 	}
@@ -127,7 +125,7 @@ public class SimpleCRISPRDesigner {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void findAndWriteGuides(Map<String, OutputFormat> outFilesAndFormats, int numGuidesPerInterval) throws IOException, InterruptedException {
+	protected void findAndWriteGuides(Map<String, OutputFormat> outFilesAndFormats, int numGuidesPerInterval) throws IOException, InterruptedException {
 		logger.info("");
 		logger.info("Finding valid guide RNAs and writing output...");
 		Map<String, FileWriter> writers = new HashMap<String, FileWriter>();
@@ -164,95 +162,10 @@ public class SimpleCRISPRDesigner {
 	}
 	
 	/**
-	 * Only get a certain number of guide RNAs close to the 5' end of a group of annotations
-	 * Annotations are grouped by same name
-	 * @param outFilesAndFormats Output file names with format for each file name
-	 * @param numPerNameGroup Number of guides to get from the 5' end of each group
-	 * @throws IOException
-	 * @throws InterruptedException
+	 * Get a command line parser object for this class
+	 * @return Command line parser object
 	 */
-	private void findAndWrite5PrimeGuidesForNameGroup(Map<String, OutputFormat> outFilesAndFormats, int numPerNameGroup) throws IOException, InterruptedException {
-		logger.info("");
-		logger.info("Writing " + numPerNameGroup + " guide RNAs from the 5' end of each group of intervals sharing the same name...");
-		Map<String, FileWriter> writers = new HashMap<String, FileWriter>();
-		for(String file : outFilesAndFormats.keySet()) {
-			writers.put(file, new FileWriter(file));
-		}
-		Map<String, TreeSet<Gene>> intervalsByName = new HashMap<String, TreeSet<Gene>>();
-		// Organize the intervals by grouping ones with same name
-		for(String chr : intervals.keySet()) {
-			for(Gene interval : intervals.get(chr)) {
-				String name = interval.getName();
-				if(!intervalsByName.containsKey(name)) {
-					intervalsByName.put(name, new TreeSet<Gene>());
-				}
-				intervalsByName.get(name).add(interval);
-			}
-		}
-		// Save strand for each name group
-		Map<String, Strand> strands = new HashMap<String, Strand>();
-		for(String name : intervalsByName.keySet()) {
-			Strand strand = intervalsByName.get(name).iterator().next().getOrientation();
-			if(strand.equals(Strand.UNKNOWN)) {
-				throw new IllegalArgumentException("Strand must be known");
-			}
-			for(Gene interval : intervalsByName.get(name)) {
-				if(!interval.getOrientation().equals(strand)) {
-					throw new IllegalArgumentException("All intervals with same name must have same strand");
-				}
-			}
-			strands.put(name, strand);
-		}
-		for(String name : intervalsByName.keySet()) {
-			logger.info(name + "\t" + intervalsByName.get(name).iterator().next().getChr() + "\t" + intervalsByName.get(name).size() + " intervals");
-			int numFound = 0;
-			Iterator<Gene> iter = strands.get(name).equals(Strand.POSITIVE) ? intervalsByName.get(name).iterator() : intervalsByName.get(name).descendingIterator();
-			while(iter.hasNext()) {
-				if(numFound >= numPerNameGroup) {
-					break;
-				}
-				Gene region = iter.next();
-				// Make sure region only has one block
-				if(region.numBlocks() > 1) {
-					for(FileWriter w : writers.values()) {
-						w.close();
-					}
-					throw new IllegalArgumentException("Region must have only one block: " + region.toBED());
-				}
-				Collection<GuideRNA> guides = finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd());
-				// Put the guide RNAs in order
-				TreeSet<GuideRNA> ordered = new TreeSet<GuideRNA>();
-				ordered.addAll(guides);
-				Iterator<GuideRNA> gIter = strands.get(name).equals(Strand.POSITIVE) ? ordered.iterator() : ordered.descendingIterator();
-				// Only get guides until desired number is reached
-				while(gIter.hasNext()) {
-					GuideRNA guide = gIter.next();
-					for(String file : outFilesAndFormats.keySet()) {
-						FileWriter w = writers.get(file);
-						w.write(outFilesAndFormats.get(file).format(name, guide) + "\n");					
-					}
-					numFound++;
-					if(numFound >= numPerNameGroup) {
-						break;
-					}
-				}
-			}
-			if(numFound < numPerNameGroup) {
-				logger.warn("Only found " + numFound + " valid guide RNAs for " + name + ".");
-			}
-		}
-		for(FileWriter w : writers.values()) {
-			w.close();
-		}
-	}
-	
-	/**
-	 * @param args
-	 * @throws IOException 
-	 * @throws InterruptedException 
-	 */
-	public static void main(String[] args) throws IOException, InterruptedException {
-		
+	protected static CommandLineParser getCommandLineParser() {
 		CommandLineParser p = new CommandLineParser();
 		
 		p.addStringArg("-g", "Genome fasta", true);
@@ -274,68 +187,86 @@ public class SimpleCRISPRDesigner {
 		
 		p.addStringArg("-o", "Output prefix", true);
 		p.addBooleanArg("-d", "Debug logging", false, false);
+				
+		return p;
+	}
+	
+	/**
+	 * Instantiate with a command line
+	 * @param parser Command line parser object
+	 * @param args Command line arguments
+	 * @throws IOException
+	 */
+	public SimpleCRISPRDesigner(CommandLineParser parser, String[] args) throws IOException {
 		
-		p.addBooleanArg("-5p", "Only get a certain number of guide RNAs from the 5' end of each group of intervals sharing the same name", false, false);
-		p.addIntArg("-5pn", "If using -5p, number to get for each name group", false, 2);
+		parser.parse(args);
 		
-		p.parse(args);
+		String genomeFasta = parser.getStringArg("-g");
+		String regionBed = parser.getStringArg("-r");
+		int numInterval = parser.getIntArg("-n");
 		
-		String genomeFasta = p.getStringArg("-g");
-		String regionBed = p.getStringArg("-r");
-		int numPerInterval = p.getIntArg("-n");
+		boolean efficacyFilter = parser.getBooleanArg("-ge");
+		double maxEfficacyScore = parser.getDoubleArg("-gem");
 		
-		boolean efficacyFilter = p.getBooleanArg("-ge");
-		double maxEfficacyScore = p.getDoubleArg("-gem");
+		boolean offTargetFilter = parser.getBooleanArg("-got");
+		int minOffTargetScore = parser.getIntArg("-gotm");
+		String offTargetBitsFile = parser.getStringArg("-gotb");
 		
-		boolean offTargetFilter = p.getBooleanArg("-got");
-		int minOffTargetScore = p.getIntArg("-gotm");
-		String offTargetBitsFile = p.getStringArg("-gotb");
+		boolean otherSeqsFilter = parser.getBooleanArg("-os");
+		String otherSeqsFasta = parser.getStringArg("-osf");
+		int maxMatch16 = parser.getIntArg("-osm16");
+		int maxMatch4 = parser.getIntArg("-osm4");
+		boolean includeNAG = parser.getBooleanArg("-osnag");
 		
-		boolean otherSeqsFilter = p.getBooleanArg("-os");
-		String otherSeqsFasta = p.getStringArg("-osf");
-		int maxMatch16 = p.getIntArg("-osm16");
-		int maxMatch4 = p.getIntArg("-osm4");
-		boolean includeNAG = p.getBooleanArg("-osnag");
 		
-		boolean fivePrime = p.getBooleanArg("-5p");
-		int fivePrimeNum = p.getIntArg("-5pn");
+		String out = parser.getStringArg("-o");
 		
-		String output = p.getStringArg("-o");
-		
-		if(p.getBooleanArg("-d")) {
+		if(parser.getBooleanArg("-d")) {
 			logger.setLevel(Level.DEBUG);
 			SingleGuideRNAFinder.logger.setLevel(Level.DEBUG);
 			GuideDoesNotTargetSequences.logger.setLevel(Level.DEBUG);
 		}
 		
-		SingleGuideRNAFinder finder = new SingleGuideRNAFinder(genomeFasta);
+		SingleGuideRNAFinder gfinder = new SingleGuideRNAFinder(genomeFasta);
 		if(efficacyFilter) {
-			finder.addEfficacyFilter(maxEfficacyScore);
+			gfinder.addEfficacyFilter(maxEfficacyScore);
 		}
 		if(offTargetFilter) {
 			if(offTargetBitsFile == null) {
 				throw new IllegalArgumentException("If adding off target filter, must provide off target bits file with -gotb");
 			}
-			finder.addOffTargetFilter(offTargetBitsFile, minOffTargetScore);
+			gfinder.addOffTargetFilter(offTargetBitsFile, minOffTargetScore);
 		}
 		if(otherSeqsFilter) {
 			if(otherSeqsFasta == null) {
 				throw new IllegalArgumentException("If adding off target filter, must provide fasta file of other sequences with -osf");
 			}
-			finder.addGuideDoesNotTargetOtherSeqs(otherSeqsFasta, maxMatch16, maxMatch4, includeNAG);
+			gfinder.addGuideDoesNotTargetOtherSeqs(otherSeqsFasta, maxMatch16, maxMatch4, includeNAG);
 		}
 		
-		SimpleCRISPRDesigner designer = new SimpleCRISPRDesigner(finder, regionBed);
+		finder = gfinder;
+		intervals = BEDFileParser.loadDataByChr(regionBed);
+		
+		output = out;
+		numPerInterval = numInterval;
+		
+	}
+	
+	/**
+	 * @param args
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 */
+	public static void main(String[] args) throws IOException, InterruptedException {
+		
+		CommandLineParser parser = getCommandLineParser();
+		SimpleCRISPRDesigner designer = new SimpleCRISPRDesigner(parser, args);
 		
 		Map<String, OutputFormat> outFiles = new HashMap<String, OutputFormat>();
-		outFiles.put(output + ".bed", designer.new BedFormat());
-		outFiles.put(output + ".out", designer.new SimpleTableFormat());
+		outFiles.put(designer.output + ".bed", designer.new BedFormat());
+		outFiles.put(designer.output + ".out", designer.new SimpleTableFormat());
 		
-		if(fivePrime) {
-			designer.findAndWrite5PrimeGuidesForNameGroup(outFiles, fivePrimeNum);
-		} else {
-			designer.findAndWriteGuides(outFiles, numPerInterval);
-		}
+		designer.findAndWriteGuides(outFiles, designer.numPerInterval);
 		
 		logger.info("");
 		logger.info("All done.");

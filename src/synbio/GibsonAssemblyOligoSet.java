@@ -18,12 +18,13 @@ import java.util.TreeSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import primer.PrimerPair;
+import primer.PrimerUtils;
+
 import editing.RestrictionEnzymeFactory;
 import editing.TypeIISRestrictionEnzyme;
 
 import broad.core.parser.CommandLineParser;
-import broad.core.primer3.PrimerPair;
-import broad.core.primer3.PrimerUtils;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 
