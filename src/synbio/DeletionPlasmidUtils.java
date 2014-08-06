@@ -3,6 +3,9 @@
  */
 package synbio;
 
+import general.CommandLineParser;
+import general.StringParser;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -25,8 +28,6 @@ import primer.PrimerPair;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.utils.CountLogger;
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
@@ -525,7 +526,7 @@ public class DeletionPlasmidUtils {
         // make all possible primers
         Sequence flankingSequence = plasmid.getSequenceFlankingDeletion(maxProductSize, maxProductSize, true);
         logger.debug("Flanking sequence " + flankingSequence.getId());
-        Collection<PrimerPair> allPrimers = PcrPrimerDesigner.designPrimers(config, flankingSequence, pathPrimer3core);
+        Collection<PrimerPair> allPrimers = PcrPrimerDesigner.designPrimers(config, flankingSequence.getSequenceBases(), pathPrimer3core);
         
         if(allPrimers.isEmpty()) {
         	logger.warn("Couldn't find any acceptable primers flanking deletion for plasmid " + plasmid.getId());

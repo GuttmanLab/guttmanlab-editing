@@ -32,8 +32,8 @@ import editing.crispr.predicate.GuideSufficientIsolation;
 import editing.crispr.score.GuideEfficacyScore;
 import editing.crispr.score.GuideOffTargetScore;
 import editing.crispr.score.GuidePairCombinedEfficacyDistanceScore;
+import general.CommandLineParser;
 
-import broad.core.parser.CommandLineParser;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;

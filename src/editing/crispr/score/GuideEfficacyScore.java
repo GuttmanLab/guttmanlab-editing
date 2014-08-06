@@ -20,8 +20,8 @@ import nextgen.core.pipeline.util.OGSUtils;
 import org.apache.log4j.Logger;
 
 import editing.crispr.GuideRNA;
+import general.StringParser;
 
-import broad.core.parser.StringParser;
 
 /**
  * Guide RNA score based on Tim Wang's efficacy measure

@@ -17,10 +17,10 @@ import org.apache.log4j.Logger;
 import nextgen.core.annotation.Gene;
 import nextgen.core.annotation.Annotation.Strand;
 
-import broad.core.parser.CommandLineParser;
-import broad.core.parser.StringParser;
 import broad.core.sequence.Sequence;
 import editing.crispr.GuideRNA;
+import general.CommandLineParser;
+import general.StringParser;
 
 /**
  * Design guide RNAs against groups of intervals with the same name, i.e. exons of a gene that are given a common name in the input file
