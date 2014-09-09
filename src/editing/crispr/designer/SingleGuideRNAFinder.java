@@ -227,6 +227,13 @@ public class SingleGuideRNAFinder {
 		}
 		return guides;
 	}
+
+	/**
+	 * @return The reference sequences by name
+	 */
+	public Map<String, Sequence> getReferenceSequences() {
+		return chrsByName;
+	}
 	
 
 }

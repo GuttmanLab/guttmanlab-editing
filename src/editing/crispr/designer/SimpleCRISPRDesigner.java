@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -18,6 +19,7 @@ import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;
 
 import nextgen.core.annotation.Gene;
+import nextgen.core.annotation.Annotation.Strand;
 
 /**
  * Design single guide RNAs against intervals of interest
@@ -38,7 +40,19 @@ public class SimpleCRISPRDesigner {
 	 *
 	 */
 	protected interface OutputFormat {
+		
+		/**
+		 * @param parentName Parent annotation name
+		 * @param guide sgRNA
+		 * @return The information formatted in a string
+		 */
 		public String format(String parentName, GuideRNA guide);
+		
+		/**
+		 * @return File header or null if no header
+		 */
+		public String header();
+		
 	}
 	
 	/**
@@ -94,6 +108,11 @@ public class SimpleCRISPRDesigner {
 			guide.setName(parentName + ":" + guide.getName());
 			return guide.toBED();
 		}
+
+		@Override
+		public String header() {
+			return null;
+		}
 		
 	}
 	
@@ -131,6 +150,11 @@ public class SimpleCRISPRDesigner {
 		Map<String, FileWriter> writers = new HashMap<String, FileWriter>();
 		for(String file : outFilesAndFormats.keySet()) {
 			writers.put(file, new FileWriter(file));
+			OutputFormat format = outFilesAndFormats.get(file);
+			String header = format.header();
+			if(header != null) {
+				writers.get(file).write(header + "\n");
+			}
 		}
 		for(String chr : intervals.keySet()) {
 			logger.info(chr);
@@ -168,9 +192,9 @@ public class SimpleCRISPRDesigner {
 	protected static CommandLineParser getCommandLineParser() {
 		CommandLineParser p = new CommandLineParser();
 		
-		p.addStringArg("-g", "Genome fasta", true);
-		p.addStringArg("-r", "Bed file of single intervals to target", true);
-		p.addIntArg("-n", "Number of guides to get per interval, omit if getting all", false, -1);
+		p.addStringArg("-g", "Reference sequence fasta e.g. genome or gene sequences", true);
+		p.addStringArg("-r", "Bed file of single intervals to target within reference sequences. Omit if targeting entire sequences.", false, null);
+		p.addIntArg("-n", "Number of guides to get per sequence/interval. Omit if getting all.", false, -1);
 		
 		p.addBooleanArg("-ge", "Apply guide efficacy filter", false, false);
 		p.addDoubleArg("-gem", "Max guide efficacy if using filter", false, SingleGuideRNAFinder.MAX_GUIDE_EFFICACY_SCORE);
@@ -245,7 +269,18 @@ public class SimpleCRISPRDesigner {
 		}
 		
 		finder = gfinder;
-		intervals = BEDFileParser.loadDataByChr(regionBed);
+		if(regionBed != null) {
+			intervals = BEDFileParser.loadDataByChr(regionBed);
+		} else {
+			intervals = new TreeMap<String, Collection<Gene>>();
+			Map<String, Sequence> refSeqs = finder.getReferenceSequences();
+			for(String seqName : refSeqs.keySet()) {
+				int len = refSeqs.get(seqName).getLength();
+				Collection<Gene> geneAsList = new ArrayList<Gene>();
+				geneAsList.add(new Gene(seqName, 0, len, seqName, Strand.POSITIVE));
+				intervals.put(seqName, geneAsList);
+			}
+		}
 		
 		output = out;
 		numPerInterval = numInterval;
