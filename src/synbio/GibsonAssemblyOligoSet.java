@@ -14,17 +14,14 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import primer.PrimerPair;
-import primer.PrimerUtils;
-
 import editing.RestrictionEnzymeFactory;
 import editing.TypeIISRestrictionEnzyme;
-import general.CommandLineParser;
-
+import guttmanlab.core.util.CommandLineParser;
+import broad.core.primer3.PrimerPair;
+import broad.core.primer3.PrimerUtils;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 

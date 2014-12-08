@@ -20,8 +20,8 @@ import synbio.GibsonAssemblyOligoSet.FullOligo;
 
 import editing.RestrictionEnzymeFactory;
 import editing.TypeIISRestrictionEnzyme;
-import general.CommandLineParser;
-import general.StringParser;
+import guttmanlab.core.util.CommandLineParser;
+import guttmanlab.core.util.StringParser;
 
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;

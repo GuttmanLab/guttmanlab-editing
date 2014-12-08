@@ -3,7 +3,7 @@
  */
 package editing;
 
-import general.StringParser;
+import guttmanlab.core.util.StringParser;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

@@ -11,9 +11,8 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
-import primer.PrimerPair;
-import primer.PrimerUtils;
-
+import broad.core.primer3.PrimerPair;
+import broad.core.primer3.PrimerUtils;
 import broad.core.sequence.Sequence;
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.BasicAnnotation;

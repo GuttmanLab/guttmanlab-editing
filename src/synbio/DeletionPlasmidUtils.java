@@ -3,8 +3,8 @@
  */
 package synbio;
 
-import general.CommandLineParser;
-import general.StringParser;
+import guttmanlab.core.util.CommandLineParser;
+import guttmanlab.core.util.StringParser;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,13 +21,12 @@ import java.util.TreeSet;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import primer.PcrPrimerDesigner;
-import primer.Primer3Configuration;
-import primer.PrimerPair;
-
 import nextgen.core.annotation.Annotation;
 import nextgen.core.annotation.Gene;
 import nextgen.core.utils.CountLogger;
+import broad.core.primer3.PcrPrimerDesigner;
+import broad.core.primer3.Primer3Configuration;
+import broad.core.primer3.PrimerPair;
 import broad.core.sequence.FastaSequenceIO;
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;

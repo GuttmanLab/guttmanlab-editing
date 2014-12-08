@@ -13,7 +13,7 @@ import org.apache.log4j.Logger;
 
 import editing.crispr.GuideRNA;
 import editing.crispr.predicate.GuideDoesNotTargetSequences;
-import general.CommandLineParser;
+import guttmanlab.core.util.CommandLineParser;
 
 import broad.core.sequence.Sequence;
 import broad.pda.annotation.BEDFileParser;

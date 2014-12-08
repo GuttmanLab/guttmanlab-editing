@@ -19,8 +19,8 @@ import nextgen.core.annotation.Annotation.Strand;
 
 import broad.core.sequence.Sequence;
 import editing.crispr.GuideRNA;
-import general.CommandLineParser;
-import general.StringParser;
+import guttmanlab.core.util.CommandLineParser;
+import guttmanlab.core.util.StringParser;
 
 /**
  * Design guide RNAs against groups of intervals with the same name, i.e. exons of a gene that are given a common name in the input file

@@ -20,7 +20,7 @@ import nextgen.core.pipeline.util.OGSUtils;
 import org.apache.log4j.Logger;
 
 import editing.crispr.GuideRNA;
-import general.StringParser;
+import guttmanlab.core.util.StringParser;
 
 
 /**
