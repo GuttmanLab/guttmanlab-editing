@@ -264,7 +264,7 @@ public class NameGroupedCRISPRDesigner extends SimpleCRISPRDesigner {
 			if(region.numBlocks() > 1) {
 				throw new IllegalArgumentException("Region must have only one block: " + region.toBED());
 			}
-			Collection<GuideRNA> guides = finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd());
+			Collection<GuideRNA> guides = finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd(), MIN_LEN_GUIDE_WITHOUT_PAM, MAX_LEN_GUIDE_WITHOUT_PAM);
 			// Put the guide RNAs in order
 			TreeSet<GuideRNA> ordered = new TreeSet<GuideRNA>();
 			ordered.addAll(guides);
@@ -359,6 +359,9 @@ public class NameGroupedCRISPRDesigner extends SimpleCRISPRDesigner {
 		outFiles.put(designer.output + ".bed", designer.new BedFormat());
 		outFiles.put(designer.output + ".out", designer.new SimpleTableFormat());
 		
+		MIN_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-minl");
+		MAX_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-maxl");
+
 		if(fivePrime) {
 			designer.findAndWrite5PrimeGuidesForGroup(outFiles, fivePrimeNum);
 		} else if(supergroupsFile != null) {

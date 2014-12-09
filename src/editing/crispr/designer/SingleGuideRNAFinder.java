@@ -65,8 +65,22 @@ public class SingleGuideRNAFinder {
 	 * @throws IOException
 	 */
 	public void addGuideDoesNotTargetOtherSeqs(String sequenceFasta, int maxMatches20, int maxMatchesLast10, boolean includeNAG) throws IOException {
+		addGuideDoesNotTargetOtherSeqs(sequenceFasta, maxMatches20, maxMatchesLast10, 20, 20, includeNAG);
+	}
+	
+	/**
+	 * Add filter to ensure that guide RNAs do not target any sequence in another set of sequences
+	 * @param sequenceFasta Sequences that should not be targeted
+	 * @param maxMatches20 Max tolerable number of matches of the 20nt sequence to a region of another sequence that is followed by a PAM
+	 * @param maxMatchesLast10 Max tolerable number of matches in the last 10nt
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @param includeNAG Include NAGs as possible PAM sequences in the other sequences
+	 * @throws IOException
+	 */
+	public void addGuideDoesNotTargetOtherSeqs(String sequenceFasta, int maxMatches20, int maxMatchesLast10, int minLen, int maxLen, boolean includeNAG) throws IOException {
 		ENFORCE_DOES_NOT_TARGET_OTHER_SEQS = true;
-		GUIDE_DOES_NOT_TARGET_SEQS = new GuideDoesNotTargetSequences(sequenceFasta, maxMatches20, maxMatchesLast10, includeNAG);
+		GUIDE_DOES_NOT_TARGET_SEQS = new GuideDoesNotTargetSequences(sequenceFasta, maxMatches20, maxMatchesLast10, minLen, maxLen, includeNAG);
 	}
 	
 	/**
@@ -171,9 +185,27 @@ public class SingleGuideRNAFinder {
 	 * @throws InterruptedException
 	 */
 	public Collection<GuideRNA> getFilteredGuideRNAs(String regionChr, int regionStart, int regionEnd, int numToGet) throws IOException, InterruptedException {
+		return getFilteredGuideRNAs(regionChr, regionStart, regionEnd, 20, 20, numToGet);
+	}
+	
+	/**
+	 * Get filtered set of guide RNAs within the region
+	 * Get a certain number of valid guides
+	 * No guarantee about which ones will be returned
+	 * @param regionChr Region chromosome
+	 * @param regionStart Region start
+	 * @param regionEnd Region end
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @param numToGet Number of guides to get
+	 * @return All valid guide RNAs contained within the region
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public Collection<GuideRNA> getFilteredGuideRNAs(String regionChr, int regionStart, int regionEnd, int minLen, int maxLen, int numToGet) throws IOException, InterruptedException {
 		Gene region = new Gene(regionChr, regionStart, regionEnd);
 		region.setName(region.toUCSC());
-		Collection<GuideRNA> guides = GuideRNA.findAll(chrsByName.get(region.getChr()), region.getStart(), region.getEnd(), region);
+		Collection<GuideRNA> guides = GuideRNA.findAll(chrsByName.get(region.getChr()), region.getStart(), region.getEnd(), minLen, maxLen, region, false);
 		// Use a hash set so order will be somewhat random
 		HashSet<GuideRNA> guidesHash = new HashSet<GuideRNA>();
 		guidesHash.addAll(guides);
@@ -198,7 +230,6 @@ public class SingleGuideRNAFinder {
 		return rtrn;
 	}
 
-	
 	/**
 	 * Get filtered set of guide RNAs within the region
 	 * @param regionChr Region chromosome
@@ -209,11 +240,26 @@ public class SingleGuideRNAFinder {
 	 * @throws InterruptedException
 	 */
 	public Collection<GuideRNA> getFilteredGuideRNAs(String regionChr, int regionStart, int regionEnd) throws IOException, InterruptedException {
+		return getFilteredGuideRNAs(regionChr, regionStart, regionEnd, 20, 20);
+	}
+		
+	/**
+	 * Get filtered set of guide RNAs within the region
+	 * @param regionChr Region chromosome
+	 * @param regionStart Region start
+	 * @param regionEnd Region end
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @return All valid guide RNAs contained within the region
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public Collection<GuideRNA> getFilteredGuideRNAs(String regionChr, int regionStart, int regionEnd, int minLen, int maxLen) throws IOException, InterruptedException {
 		//logger.debug("");
 		//logger.debug("Getting filtered guide RNAs for region " + regionChr + ":" + regionStart + "-" + regionEnd);
 		Gene region = new Gene(regionChr, regionStart, regionEnd);
 		region.setName(region.toUCSC());
-		Collection<GuideRNA> guides = GuideRNA.findAll(chrsByName.get(region.getChr()), region.getStart(), region.getEnd(), region);
+		Collection<GuideRNA> guides = GuideRNA.findAll(chrsByName.get(region.getChr()), region.getStart(), region.getEnd(), minLen, maxLen, region, false);
 		//logger.debug("There are " + guides.size() + " possible guide RNAs.");
 		try {
 			applyFilters(guides);

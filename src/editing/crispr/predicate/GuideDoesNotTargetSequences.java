@@ -34,12 +34,24 @@ public class GuideDoesNotTargetSequences implements GuideRNAPredicate {
 	 * @param includeNAG Include NAGs as possible PAM sequences in the other sequences
 	 */
 	public GuideDoesNotTargetSequences(String sequenceFasta, int maxMatchesFirst16, int maxMatchesLast4, boolean includeNAG) throws IOException {
+		this(sequenceFasta, maxMatchesFirst16, maxMatchesLast4, 20, 20, includeNAG);
+	}
+	
+	/**
+	 * @param sequenceFasta Sequences that should not be targeted
+	 * @param maxMatchesFirst16 Max tolerable number of matches of the first 16nt to a region of another sequence that is followed by a PAM
+	 * @param maxMatchesLast4 Max tolerable number of matches in the last 4nt
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @param includeNAG Include NAGs as possible PAM sequences in the other sequences
+	 */
+	public GuideDoesNotTargetSequences(String sequenceFasta, int maxMatchesFirst16, int maxMatchesLast4, int minLen, int maxLen, boolean includeNAG) throws IOException {
 		sequences = FastaSequenceIO.loadSequences(new File(sequenceFasta));
 		maxMatchesFirst16nt = maxMatchesFirst16;
 		maxMatchesLast4nt = maxMatchesLast4;
 		guidesInSequences = new ArrayList<GuideRNA>();
 		for(Sequence seq : sequences) {
-			guidesInSequences.addAll(GuideRNA.findAll(seq, 0, seq.getLength(), null, includeNAG));
+			guidesInSequences.addAll(GuideRNA.findAll(seq, 0, seq.getLength(), minLen, maxLen, null, includeNAG));
 		}
 	}
 	

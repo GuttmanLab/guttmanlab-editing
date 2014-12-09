@@ -19,20 +19,24 @@ import broad.core.sequence.Sequence;
  */
 public class GuideRNA extends BasicAnnotation {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	public static Logger logger = Logger.getLogger(GuideRNA.class.getName());
-	private Sequence guideSequence, sequenceWithPAM;
+	private Sequence sequenceWithoutPAM, sequenceWithPAM;
 	private Gene target = null;
+	public static boolean ALLOW_NAG_AS_PAM = false;
 
 	
 	/**
 	 * @param targetGene Target gene
 	 * @param chromosome Chromosome
-	 * @param start Start position of 20mer
-	 * @param end Position after last position of 20mer
-	 * @param allowNAG Allow NAG as valid PAM sequence
+	 * @param start Start position of guide sequence without PAM
+	 * @param end Position after last position of guide sequence without PAM
 	 * @param orientation Strand
 	 */
-	public GuideRNA(Gene targetGene, Sequence chromosome, int start, int end, Strand orientation, boolean allowNAG) {
+	public GuideRNA(Gene targetGene, Sequence chromosome, int start, int end, Strand orientation) {
 		super(chromosome.getId(), start, end, orientation);
 		validateStartEnd(start, end);
 		validateStrand(orientation);
@@ -62,26 +66,30 @@ public class GuideRNA extends BasicAnnotation {
 		shortSeq.setSequenceBases(shortSeq.getSequenceBases().toUpperCase());
 		Sequence longSeq = chromosome.getSubSequence("", startWithPAM, endWithPAM);
 		longSeq.setSequenceBases(longSeq.getSequenceBases().toUpperCase());
-		guideSequence = strand.equals(Strand.POSITIVE) ? shortSeq : Sequence.reverseSequence(shortSeq);
+		sequenceWithoutPAM = strand.equals(Strand.POSITIVE) ? shortSeq : Sequence.reverseSequence(shortSeq);
 		sequenceWithPAM = strand.equals(Strand.POSITIVE) ? longSeq : Sequence.reverseSequence(longSeq);
-		//logger.debug(name + "\tsequence20\t" + sequence20.getSequenceBases() + "\tsequence23\t" + sequence23.getSequenceBases());
-		validateGuideSequence(guideSequence);
-		validateSequenceWithPAM(sequenceWithPAM, allowNAG);
+		validateSequenceWithPAM(sequenceWithPAM);
 	}
 
-	
-	public GuideRNA(Annotation a, String sequence) {
+	/**
+	 * @param a The annotation of the guide RNA itself without PAM sequence
+	 * @param sequenceIncludingPAM Sequence of the guide RNA with PAM
+	 */
+	public GuideRNA(Annotation a, String sequenceIncludingPAM) {
 		super(a);
 		validateStartEnd(getStart(), getEnd());
 		validateStrand(getOrientation());
 		setNameFromTarget();
-		guideSequence = new Sequence(getName());
-		guideSequence.setSequenceBases(sequence.substring(0,20));
-		guideSequence.setForwardStrand(getOrientation() == Strand.POSITIVE);
+		sequenceWithoutPAM = new Sequence(getName());
+		sequenceWithoutPAM.setSequenceBases(sequenceIncludingPAM.substring(0,sequenceIncludingPAM.length() - 3));
+		sequenceWithoutPAM.setForwardStrand(getOrientation() == Strand.POSITIVE);
 		
 		sequenceWithPAM = new Sequence(getName());
-		sequenceWithPAM.setSequenceBases(sequence);
+		sequenceWithPAM.setSequenceBases(sequenceIncludingPAM);
 		sequenceWithPAM.setForwardStrand(getOrientation() == Strand.POSITIVE);
+		
+		validateSequenceWithPAM(sequenceWithPAM);
+		
 	}
 	
 	
@@ -99,11 +107,11 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	public String getSequenceString() {
-		return guideSequence.getSequenceBases();
+		return sequenceWithoutPAM.getSequenceBases();
 	}
 	
 	public Sequence getSequence() {
-		return guideSequence;
+		return sequenceWithoutPAM;
 	}
 	
 	public Sequence getSequenceWithPAM() {
@@ -119,14 +127,14 @@ public class GuideRNA extends BasicAnnotation {
 	}
 
 	/**
-	 * Find all guide RNAs on either strand within the window
+	 * Find all 20nt guide RNAs on either strand within the window
 	 * @param chr Chromosome
 	 * @param start Start position of window to look in
 	 * @param end Position after last position of window
-	 * @return All guide RNAs followed by PAM sequence whose 20nt sequence is fully contained in the window
+	 * @return All guide RNAs followed by PAM sequence whose sequence without PAM is fully contained in the window
 	 */
-	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene) {
-		return findAll(chr, start, end, targetGene, false);
+	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene, boolean allowNAG) {
+		return findAll(chr, start, end, 20, 20, targetGene, allowNAG);
 	}
 	
 	/**
@@ -134,28 +142,32 @@ public class GuideRNA extends BasicAnnotation {
 	 * @param chr Chromosome
 	 * @param start Start position of window to look in
 	 * @param end Position after last position of window
-	 * @param includeNAG Include NAG as a valid PAM sequence
-	 * @return All guide RNAs followed by PAM sequence whose 20nt sequence is fully contained in the window
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @return All guide RNAs followed by PAM sequence whose sequence without PAM is fully contained in the window
 	 */
-	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, Gene targetGene, boolean includeNAG) {
+	public static Collection<GuideRNA> findAll(Sequence chr, int start, int end, int minLen, int maxLen, Gene targetGene, boolean allowNAG) {
 		//logger.debug("");
+		ALLOW_NAG_AS_PAM = allowNAG;
 		Collection<GuideRNA> rtrn = new ArrayList<GuideRNA>();
 		Collection<Annotation> pams = findAllNGGs(chr, start, end);
-		if(includeNAG) {
+		if(ALLOW_NAG_AS_PAM) {
 			pams.addAll(findAllNAGs(chr, start, end));
 		}
 		for(Annotation pam : pams) {
-			GuideRNA g = adjacentGuideRNA(chr, start, end, pam, targetGene, includeNAG);
-			if(g != null) {
-				//logger.debug("Added " + g.toString());
-				rtrn.add(g);
+			for(int len = minLen; len <= maxLen; len++) {
+				GuideRNA g = adjacentGuideRNA(chr, start, end, len, pam, targetGene);
+				if(g != null) {
+					//logger.debug("Added " + g.toString());
+					rtrn.add(g);
+				}
 			}
 		}
 		return rtrn;
 	}
 	
 	public String toString() {
-		return getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + guideSequence.getSequenceBases();
+		return getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + sequenceWithoutPAM.getSequenceBases();
 	}
 	
 	/**
@@ -163,47 +175,47 @@ public class GuideRNA extends BasicAnnotation {
 	 * @param windowChr Window chromosome
 	 * @param windowStart Window start
 	 * @param windowEnd Position after last position of window
+	 * @param length Length of guide RNA sequence without PAM
 	 * @param pam Oriented PAM location
 	 * @param targetGene Target gene
-	 * @param allowNAG Include NAG as a valid PAM sequence
-	 * @return The 20nt guide RNA or null if not fully contained in window
+	 * @return The guide RNA or null if not fully contained in window
 	 */
-	private static GuideRNA adjacentGuideRNA(Sequence windowChr, int windowStart, int windowEnd, Annotation pam, Gene targetGene, boolean allowNAG) {
-		validatePAM(windowChr, pam, allowNAG);
+	private static GuideRNA adjacentGuideRNA(Sequence windowChr, int windowStart, int windowEnd, int length, Annotation pam, Gene targetGene) {
+		validatePAM(windowChr, pam);
 		//logger.debug("Getting guide RNA adjacent to " + pam.toUCSC() + ":" + pam.getOrientation().toString());
 		if(pam.getOrientation().equals(Strand.POSITIVE)) {
-			if(pam.getStart() - windowStart < 20) {
+			if(pam.getStart() - windowStart < length) {
 				// Guide RNA cannot be fully contained in window
 				logger.debug("Guide RNA neighboring " + pam.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
 				return null;
 			}
-			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getStart() - 20, pam.getStart(), Strand.POSITIVE, allowNAG);
+			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getStart() - length, pam.getStart(), Strand.POSITIVE);
 			//logger.debug("Guide RNA neighboring " + pam.toUCSC() + " is " + rtrn.toString());
 			return rtrn;
 		}
 		if(pam.getOrientation().equals(Strand.NEGATIVE)) {
-			if(pam.getEnd() + 20 > windowEnd) {
+			if(pam.getEnd() + length > windowEnd) {
 				// Guide RNA cannot be fully contained in window
 				logger.debug("Guide RNA neighboring " + pam.toUCSC() +" not fully contained in " + windowChr.getId() + ":" + windowStart + "-" + windowEnd);
 				return null;
 			}
-			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getEnd(), pam.getEnd() + 20, Strand.NEGATIVE, allowNAG);
+			GuideRNA rtrn = new GuideRNA(targetGene, windowChr, pam.getEnd(), pam.getEnd() + length, Strand.NEGATIVE);
 			//logger.debug("Guide RNA neighboring " + pam.toUCSC() + " is " + rtrn.toString());
 			return rtrn;
 		}
 		throw new IllegalArgumentException("Strand must be known");
 	}
 	
-	private static void validatePAM(Sequence chr, Annotation pam, boolean allowNAG) {
+	private static void validatePAM(Sequence chr, Annotation pam) {
 		if(pam.numBlocks() != 1) {
 			throw new IllegalArgumentException("Must have one block");
 		}
 		Sequence seq = chr.getSubsequence(pam);
 		String substr = seq.getSequenceBases().substring(1).toUpperCase();
-		if(!allowNAG && !substr.equals("GG")) {
+		if(!ALLOW_NAG_AS_PAM && !substr.equals("GG")) {
 			throw new IllegalArgumentException("Sequence must be NGG. Is " + seq.getSequenceBases());
 		}
-		if(allowNAG && !(substr.equals("GG") || substr.equals("AG"))) {
+		if(ALLOW_NAG_AS_PAM && !(substr.equals("GG") || substr.equals("AG"))) {
 			throw new IllegalArgumentException("Sequence must be NGG or NAG. Is " + seq.getSequenceBases());
 		}
 	}
@@ -532,8 +544,8 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	private static void validateStartEnd(int start, int end) {
-		if(end - start != 20) {
-			throw new IllegalArgumentException("end - start must equal 20");
+		if(!(end > start)) {
+			throw new IllegalArgumentException("End must be > start");
 		}
 	}
 	
@@ -543,27 +555,18 @@ public class GuideRNA extends BasicAnnotation {
 		}
 	}
 	
-	private static void validateGuideSequence(Sequence sequence) {
-		if(sequence.getLength() != 20) {
-			throw new IllegalArgumentException("Sequence length must be 20 " + sequence.getSequenceBases());
-		}
-	}
-	
-	private static void validateSequenceWithPAM(Sequence sequence, boolean allowNAG) {
-		if(sequence.getLength() != 23) {
-			throw new IllegalArgumentException("Sequence length must be 23: " + sequence.getSequenceBases());
-		}
-		String substr = sequence.getSequenceBases().substring(21, 23);
-		if(!allowNAG && !substr.equals("GG")) {
+	private static void validateSequenceWithPAM(Sequence sequence) {
+		String substr = sequence.getSequenceBases().substring(sequence.getLength() - 2, sequence.getLength());
+		if(!ALLOW_NAG_AS_PAM && !substr.equals("GG")) {
 			throw new IllegalArgumentException("Sequence must end in GG: " + sequence.getSequenceBases());
 		}
-		if(allowNAG && !(substr.equals("GG") || substr.equals("AG"))) {
+		if(ALLOW_NAG_AS_PAM && !(substr.equals("GG") || substr.equals("AG"))) {
 			throw new IllegalArgumentException("Sequence must end in GG or AG: " + sequence.getSequenceBases());
 		}
 	}
 
 	public int hashCode() {
-		String s = toBED() + getName() + guideSequence.getSequenceBases();
+		String s = toBED() + getName() + sequenceWithoutPAM.getSequenceBases();
 		if (target != null) s = s + target.toBED();
 		return s.hashCode();
 	}
@@ -576,12 +579,12 @@ public class GuideRNA extends BasicAnnotation {
 
 	
 	public String toBedWithSequence() {
-		return toBED() + "\t" + guideSequence.getSequenceBases();
+		return toBED() + "\t" + sequenceWithoutPAM.getSequenceBases();
 	}
 
 	/**
 	 * @author engreitz
-	 * For files stored in BED12 plus the 23-mer sequence in column 13
+	 * For files stored in BED12 plus the sequence including PAM in column 13
 	 */
 	public static class Factory implements TabbedReader.Factory<GuideRNA> {
 		@Override
@@ -593,7 +596,7 @@ public class GuideRNA extends BasicAnnotation {
 	
 	/**
 	 * @author engreitz
-	 * For files stored in BED6 with 23-mer sequence in the name column
+	 * For files stored in BED6 with sequence including PAM in the name column
 	 */
 	public static class FactoryBED6 implements TabbedReader.Factory<GuideRNA> {
 		@Override

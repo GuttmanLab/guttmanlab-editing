@@ -26,6 +26,10 @@ import nextgen.core.utils.AnnotationUtils;
 public class NickingGuideRNAPair extends BasicAnnotation {
 	
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private GuideRNA plusStrandGuideRNA;
 	private GuideRNA minusStrandGuideRNA;
 	private Gene target;
@@ -101,7 +105,21 @@ public class NickingGuideRNAPair extends BasicAnnotation {
 	 * @return All fully contained guide RNA pairs (one member of pair on each strand)
 	 */
 	public static Collection<NickingGuideRNAPair> findAll(Sequence chr, int start, int end, Gene targetGene) {
-		Collection<GuideRNA> all = GuideRNA.findAll(chr, start, end, targetGene);
+		return findAll(chr, start, end, 20, 20, targetGene);
+	}
+	
+	/**
+	 * Get all valid guide RNA pairs fully contained in the window
+	 * @param chr Window chromosome
+	 * @param start Window start
+	 * @param end Position after last position of window
+	 * @param minLen Min length of guide sequence without PAM
+	 * @param maxLen Max length of guide sequence without PAM
+	 * @param targetGene Target gene
+	 * @return All fully contained guide RNA pairs (one member of pair on each strand)
+	 */
+	public static Collection<NickingGuideRNAPair> findAll(Sequence chr, int start, int end, int minLen, int maxLen, Gene targetGene) {
+		Collection<GuideRNA> all = GuideRNA.findAll(chr, start, end, minLen, maxLen, targetGene, false);
 		//logger.debug("There are " + all.size() + " total guide RNAs in " + chr.getId() + ":" + start + "-" + end);
 		Collection<GuideRNA> plus = new ArrayList<GuideRNA>();
 		Collection<GuideRNA> minus = new ArrayList<GuideRNA>();

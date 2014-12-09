@@ -734,7 +734,7 @@ public class DoubleNickCRISPRDesigner {
 		int windowStart = Math.min(windowStrandedBegin, windowStrandedEnd);
 		int windowEnd = Math.max(windowStrandedBegin, windowStrandedEnd);
 		logger.debug("DOWNSTREAM_WINDOW\t" + gene.getName() + "\t" + gene.toUCSC() + ":" + gene.getOrientation().toString() + "\tmin_dist=" + MIN_DOWNSTREAM_DISTANCE + "\tmax_dist=" + MAX_DOWNSTREAM_DISTANCE + "\t" + chr.getId() + ":" + windowStart + "-" + windowEnd);
-		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
+		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, 20, 20, gene);
 	}
 	
 	/**
@@ -755,7 +755,7 @@ public class DoubleNickCRISPRDesigner {
 		int windowStart = Math.min(windowStrandedBegin, windowStrandedEnd);
 		int windowEnd = Math.max(windowStrandedBegin, windowStrandedEnd);
 		logger.debug("UPSTREAM_WINDOW\t" + gene.getName() + "\t" + gene.toUCSC() + ":" + gene.getOrientation().toString() + "\tmin_dist=" + MIN_UPSTREAM_DISTANCE + "\tmax_dist=" + MAX_UPSTREAM_DISTANCE + "\t" + chr.getId() + ":" + windowStart + "-" + windowEnd);
-		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, gene);
+		return NickingGuideRNAPair.findAll(chr, windowStart, windowEnd, 20, 20, gene);
 	}
 	
 	

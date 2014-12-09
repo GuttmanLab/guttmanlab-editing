@@ -34,6 +34,9 @@ public class SimpleCRISPRDesigner {
 	protected int numPerInterval; // Number of guides to get per interval
 	protected String output; // Output file prefix
 	
+	public static int MIN_LEN_GUIDE_WITHOUT_PAM = 20;
+	public static int MAX_LEN_GUIDE_WITHOUT_PAM = 20;
+	
 	/**
 	 * A format for outputting a guide RNA
 	 * @author prussell
@@ -168,9 +171,9 @@ public class SimpleCRISPRDesigner {
 				}
 				Collection<GuideRNA> guides = new ArrayList<GuideRNA>();
 				if(numGuidesPerInterval >= 0) {
-					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd(), numGuidesPerInterval));
+					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd(), MIN_LEN_GUIDE_WITHOUT_PAM, MAX_LEN_GUIDE_WITHOUT_PAM, numGuidesPerInterval));
 				} else {
-					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd()));
+					guides.addAll(finder.getFilteredGuideRNAs(region.getChr(), region.getStart(), region.getEnd(), MIN_LEN_GUIDE_WITHOUT_PAM, MAX_LEN_GUIDE_WITHOUT_PAM));
 				}
 				for(GuideRNA guide : guides) {
 					for(String file : outFilesAndFormats.keySet()) {
@@ -209,6 +212,9 @@ public class SimpleCRISPRDesigner {
 		p.addIntArg("-osm4", "For other sequences filter, max number of matches over the last 4bp for locus with a PAM sequence", false, 0);
 		p.addBooleanArg("-osnag", "For other sequences filter, count NAG as a possible PAM sequence", false, false);
 		
+		p.addIntArg("-minl", "Min length of guide RNA not including PAM sequence", false, 20);
+		p.addIntArg("-maxl", "Max length of guide RNA not including PAM sequence", false, 20);
+		
 		p.addStringArg("-o", "Output prefix", true);
 		p.addBooleanArg("-d", "Debug logging", false, false);
 				
@@ -242,6 +248,8 @@ public class SimpleCRISPRDesigner {
 		int maxMatch4 = parser.getIntArg("-osm4");
 		boolean includeNAG = parser.getBooleanArg("-osnag");
 		
+		MIN_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-minl");
+		MAX_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-maxl");
 		
 		String out = parser.getStringArg("-o");
 		
@@ -265,7 +273,7 @@ public class SimpleCRISPRDesigner {
 			if(otherSeqsFasta == null) {
 				throw new IllegalArgumentException("If adding off target filter, must provide fasta file of other sequences with -osf");
 			}
-			gfinder.addGuideDoesNotTargetOtherSeqs(otherSeqsFasta, maxMatch16, maxMatch4, includeNAG);
+			gfinder.addGuideDoesNotTargetOtherSeqs(otherSeqsFasta, maxMatch16, maxMatch4, MIN_LEN_GUIDE_WITHOUT_PAM, MAX_LEN_GUIDE_WITHOUT_PAM, includeNAG);
 		}
 		
 		finder = gfinder;
@@ -300,6 +308,9 @@ public class SimpleCRISPRDesigner {
 		Map<String, OutputFormat> outFiles = new HashMap<String, OutputFormat>();
 		outFiles.put(designer.output + ".bed", designer.new BedFormat());
 		outFiles.put(designer.output + ".out", designer.new SimpleTableFormat());
+		
+		MIN_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-minl");
+		MAX_LEN_GUIDE_WITHOUT_PAM = parser.getIntArg("-maxl");
 		
 		designer.findAndWriteGuides(outFiles, designer.numPerInterval);
 		

@@ -189,11 +189,14 @@ public class GuideEfficacyScore implements GuideRNAScore {
 		Collection<String> alreadyWritten = new TreeSet<String>();
 		for(GuideRNA g : sequences) {
 			String seq = g.getSequenceString();
+			if(seq.length() != 20) {
+				throw new IllegalArgumentException("Guide efficacy score not trained on sgRNAs of length other than 20");
+			}
 			if(alreadyWritten.contains(seq)) {
 				continue;
 			}
-			String line = g.getSequence().getSequenceBases() + "\t";
-			for(int i = 0; i < 19; i++) {
+			String line = seq + "\t";
+			for(int i = 0; i < seq.length() - 1; i++) {
 				char b = line.charAt(i);
 				switch(b) {
 				case 'A':
@@ -221,10 +224,10 @@ public class GuideEfficacyScore implements GuideRNAScore {
 					line += "0\t0\t0\t1\t";
 					break;
 				default:
-					throw new IllegalArgumentException("Can't process char " + b);
+					throw new IllegalArgumentException("Can't process char: " + b + " at position " + i + " in sequence " + line);
 				}
 			}
-			char b = line.charAt(19);
+			char b = line.charAt(seq.length() - 1);
 			switch(b) {
 			case 'A':
 				line += "1\t0\t0\t0";
