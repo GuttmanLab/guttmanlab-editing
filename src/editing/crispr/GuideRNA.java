@@ -20,7 +20,7 @@ import broad.core.sequence.Sequence;
 public class GuideRNA extends BasicAnnotation {
 
 	public static Logger logger = Logger.getLogger(GuideRNA.class.getName());
-	private Sequence sequence20, sequence23;
+	private Sequence guideSequence, sequenceWithPAM;
 	private Gene target = null;
 
 	
@@ -39,34 +39,34 @@ public class GuideRNA extends BasicAnnotation {
 		setNameFromTarget();
 		target = targetGene;
 		
-		int start20;
-		int start23;
-		int end20;
-		int end23;
+		int startWithoutPAM;
+		int startWithPAM;
+		int endWithoutPAM;
+		int endWithPAM;
 		Strand strand;
 		
 		// Validate
 		strand = orientation;
 		if(strand.equals(Strand.POSITIVE)) {
-			start20 = getStart();
-			start23 = start20;
-			end20 = getEnd();
-			end23 = end20 + 3;
+			startWithoutPAM = getStart();
+			startWithPAM = startWithoutPAM;
+			endWithoutPAM = getEnd();
+			endWithPAM = endWithoutPAM + 3;
 		} else {
-			start20 = getStart();
-			start23 = getStart() - 3;
-			end20 = getEnd();
-			end23 = getEnd();
+			startWithoutPAM = getStart();
+			startWithPAM = getStart() - 3;
+			endWithoutPAM = getEnd();
+			endWithPAM = getEnd();
 		}
-		Sequence shortSeq = chromosome.getSubSequence("", start20, end20);
+		Sequence shortSeq = chromosome.getSubSequence("", startWithoutPAM, endWithoutPAM);
 		shortSeq.setSequenceBases(shortSeq.getSequenceBases().toUpperCase());
-		Sequence longSeq = chromosome.getSubSequence("", start23, end23);
+		Sequence longSeq = chromosome.getSubSequence("", startWithPAM, endWithPAM);
 		longSeq.setSequenceBases(longSeq.getSequenceBases().toUpperCase());
-		sequence20 = strand.equals(Strand.POSITIVE) ? shortSeq : Sequence.reverseSequence(shortSeq);
-		sequence23 = strand.equals(Strand.POSITIVE) ? longSeq : Sequence.reverseSequence(longSeq);
+		guideSequence = strand.equals(Strand.POSITIVE) ? shortSeq : Sequence.reverseSequence(shortSeq);
+		sequenceWithPAM = strand.equals(Strand.POSITIVE) ? longSeq : Sequence.reverseSequence(longSeq);
 		//logger.debug(name + "\tsequence20\t" + sequence20.getSequenceBases() + "\tsequence23\t" + sequence23.getSequenceBases());
-		validateSequence20(sequence20);
-		validateSequence23(sequence23, allowNAG);
+		validateGuideSequence(guideSequence);
+		validateSequenceWithPAM(sequenceWithPAM, allowNAG);
 	}
 
 	
@@ -75,13 +75,13 @@ public class GuideRNA extends BasicAnnotation {
 		validateStartEnd(getStart(), getEnd());
 		validateStrand(getOrientation());
 		setNameFromTarget();
-		sequence20 = new Sequence(getName());
-		sequence20.setSequenceBases(sequence.substring(0,20));
-		sequence20.setForwardStrand(getOrientation() == Strand.POSITIVE);
+		guideSequence = new Sequence(getName());
+		guideSequence.setSequenceBases(sequence.substring(0,20));
+		guideSequence.setForwardStrand(getOrientation() == Strand.POSITIVE);
 		
-		sequence23 = new Sequence(getName());
-		sequence23.setSequenceBases(sequence);
-		sequence23.setForwardStrand(getOrientation() == Strand.POSITIVE);
+		sequenceWithPAM = new Sequence(getName());
+		sequenceWithPAM.setSequenceBases(sequence);
+		sequenceWithPAM.setForwardStrand(getOrientation() == Strand.POSITIVE);
 	}
 	
 	
@@ -99,15 +99,15 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	public String getSequenceString() {
-		return sequence20.getSequenceBases();
+		return guideSequence.getSequenceBases();
 	}
 	
 	public Sequence getSequence() {
-		return sequence20;
+		return guideSequence;
 	}
 	
 	public Sequence getSequenceWithPAM() {
-		return sequence23;
+		return sequenceWithPAM;
 	}
 	
 	public String getSequenceStringWithPAM() {
@@ -155,7 +155,7 @@ public class GuideRNA extends BasicAnnotation {
 	}
 	
 	public String toString() {
-		return getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + sequence20.getSequenceBases();
+		return getReferenceName() + ":" + getStart() + "-" + getEnd() + ":" + getStrand().toString() + ":" + guideSequence.getSequenceBases();
 	}
 	
 	/**
@@ -543,13 +543,13 @@ public class GuideRNA extends BasicAnnotation {
 		}
 	}
 	
-	private static void validateSequence20(Sequence sequence) {
+	private static void validateGuideSequence(Sequence sequence) {
 		if(sequence.getLength() != 20) {
 			throw new IllegalArgumentException("Sequence length must be 20 " + sequence.getSequenceBases());
 		}
 	}
 	
-	private static void validateSequence23(Sequence sequence, boolean allowNAG) {
+	private static void validateSequenceWithPAM(Sequence sequence, boolean allowNAG) {
 		if(sequence.getLength() != 23) {
 			throw new IllegalArgumentException("Sequence length must be 23: " + sequence.getSequenceBases());
 		}
@@ -563,7 +563,7 @@ public class GuideRNA extends BasicAnnotation {
 	}
 
 	public int hashCode() {
-		String s = toBED() + getName() + sequence20.getSequenceBases();
+		String s = toBED() + getName() + guideSequence.getSequenceBases();
 		if (target != null) s = s + target.toBED();
 		return s.hashCode();
 	}
@@ -576,7 +576,7 @@ public class GuideRNA extends BasicAnnotation {
 
 	
 	public String toBedWithSequence() {
-		return toBED() + "\t" + sequence20.getSequenceBases();
+		return toBED() + "\t" + guideSequence.getSequenceBases();
 	}
 
 	/**
